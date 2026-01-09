@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Pagos</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f0f2f5; padding-top: 170px; }
+        
+        .panel-superior {
+            position: fixed; top: 0; left: 0; width: 100%;
+            background: #212529; color: white; z-index: 1000;
+            padding: 15px 15px 10px 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-bottom-left-radius: 15px; border-bottom-right-radius: 15px;
+        }
+
+        .buscador-input { background-color: #343a40; border: 1px solid #495057; color: white; border-radius: 20px; }
+        .buscador-input::placeholder { color: #adb5bd; }
+        .buscador-input:focus { background-color: #495057; color: white; border-color: #6c757d; box-shadow: none;}
+
+        .card-persona { border: none; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .nombre-grande { font-size: 1.2rem; font-weight: 800; color: #212529; }
+        .input-monto { font-size: 1.1rem; font-weight: bold; color: #198754; text-align: center; }
+        
+        .pagado-si { border-left: 8px solid #198754; background-color: #f1fcf3; }
+        .pagado-no { border-left: 8px solid #dc3545; }
+
+        /* ESTILO DEL BOTÓN DE FOTO */
+        .btn-upload {
+            width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 10px; cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-upload-empty { background-color: #e9ecef; color: #6c757d; border: 2px dashed #ced4da; }
+        .btn-upload-full { background-color: #198754; color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="panel-superior">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <form action="/" method="get">
+                    <select name="mes" class="form-select form-select-sm fw-bold text-uppercase bg-warning text-dark border-0" 
+                            style="width: 130px;" onchange="this.form.submit()">
+                        {% for m in meses %}
+                            <option value="{{ m }}" {% if m == mes_actual %}selected{% endif %}>{{ m }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
+                <div class="text-end">
+                    <span class="d-block text-white-50" style="font-size: 0.7rem;">TOTAL RECAUDADO</span>
+                    <span class="h2 mb-0 fw-bold text-warning">{{ total }} Bs</span>
+                </div>
+            </div>
+            <div class="position-relative">
+                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-secondary"></i>
+                <input type="text" id="buscador" class="form-control buscador-input ps-5" placeholder="Buscar por nombre...">
+            </div>
+        </div>
+    </div>
+
+    <div class="container pb-5">
+        {% for p in personas %}
+            <div class="card card-persona mb-3 item-persona {% if p.monto > 0 %}pagado-si{% else %}pagado-no{% endif %}">
+                <div class="card-body p-2">
+                    <div class="row g-2 align-items-center">
+                        
+                        <div class="col-8">
+                            <div class="mb-1">
+                                <span class="nombre-grande nombre-texto">{{ p.paterno }} {{ p.nombre }}</span>
+                            </div>
+                            <form action="/guardar" method="POST">
+                                <input type="hidden" name="id" value="{{ p.id }}">
+                                <input type="hidden" name="mes" value="{{ mes_actual }}">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light border-0">Bs</span>
+                                    <input type="number" name="monto" value="{{ p.monto }}" 
+                                           class="form-control input-monto border-0 bg-light" step="0.50" placeholder="0">
+                                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i></button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="col-4 text-center" style="height: 85px;">
+                            {% if p.foto %}
+                                <div class="btn-upload btn-upload-full" onclick="verFoto('{{ url_for('static', filename='uploads/' + p.foto) }}', '{{ p.paterno }}')">
+                                    <div class="d-flex flex-column align-items-center">
+                                        <i class="bi bi-eye-fill fs-3"></i>
+                                        <small style="font-size: 0.6rem;">VER FOTO</small>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <form action="/subir_foto" method="POST" enctype="multipart/form-data" class="h-100">
+                                    <input type="hidden" name="id" value="{{ p.id }}">
+                                    <input type="hidden" name="mes" value="{{ mes_actual }}">
+                                    
+                                    <label for="file-{{ p.id }}" class="btn-upload btn-upload-empty">
+                                        <div class="d-flex flex-column align-items-center">
+                                            <i class="bi bi-camera-fill fs-3"></i>
+                                            <small style="font-size: 0.6rem;">SUBIR</small>
+                                        </div>
+                                    </label>
+                                    <input type="file" name="foto" id="file-{{ p.id }}" 
+                                           class="d-none" accept="image/*" onchange="this.form.submit()">
+                                </form>
+                            {% endif %}
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        <div id="no-resultados" class="text-center text-muted mt-5" style="display: none;">No encontrado.</div>
+    </div>
+
+    <div class="modal fade" id="fotoModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-white">
+                <div class="modal-header border-0">
+                    <h5 class="modal-title" id="modalTitulo">Comprobante</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0 text-center">
+                    <img id="imgComprobante" src="" class="img-fluid" style="max-height: 80vh;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Lógica del buscador
+        document.getElementById('buscador').addEventListener('keyup', function() {
+            let texto = this.value.toLowerCase();
+            let visible = 0;
+            document.querySelectorAll('.item-persona').forEach(card => {
+                let nombre = card.querySelector('.nombre-texto').textContent.toLowerCase();
+                if(nombre.includes(texto)){ card.style.display = ''; visible++; } 
+                else { card.style.display = 'none'; }
+            });
+            document.getElementById('no-resultados').style.display = visible === 0 ? 'block' : 'none';
+        });
+
+        // Lógica para abrir el Modal con la foto correcta
+        function verFoto(url, nombre) {
+            document.getElementById('imgComprobante').src = url;
+            document.getElementById('modalTitulo').innerText = "Comprobante: " + nombre;
+            var myModal = new bootstrap.Modal(document.getElementById('fotoModal'));
+            myModal.show();
+        }
+    </script>
+</body>
+</html>
